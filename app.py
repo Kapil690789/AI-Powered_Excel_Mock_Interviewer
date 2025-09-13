@@ -73,7 +73,7 @@ def setup_credentials():
     # Check if the app is running on Streamlit Cloud
     if hasattr(st, 'secrets'):
         # If on Streamlit Cloud, get secrets
-        gcp_creds_dict = st.secrets.get("gcp_service_account")
+        gcp_creds_dict = dict(st.secrets.get("gcp_service_account"))
         api_key = st.secrets.get("GOOGLE_API_KEY")
 
         if gcp_creds_dict:
@@ -95,20 +95,6 @@ setup_credentials()
 model = genai.GenerativeModel('gemini-1.5-flash')
 ENABLE_TTS = os.getenv("ENABLE_TTS", "true").lower() == "true"
 # --- CONFIGURATION ---
-# Load credentials securely
-api_key = load_credentials()
-
-# Error checking for API key
-if not api_key:
-    st.error("Google API Key not found. Please check your .env file or Streamlit secrets configuration.")
-    st.stop()
-
-# Configure the Gemini API
-genai.configure(api_key=api_key)
-model = genai.GenerativeModel('gemini-1.5-flash')
-
-# Check if TTS should be enabled
-ENABLE_TTS = os.getenv("ENABLE_TTS", "true").lower() == "true"
 
 # --- ENHANCED QUESTION BANK WITH DIFFICULTY LEVELS ---
 QUESTION_BANK = [
