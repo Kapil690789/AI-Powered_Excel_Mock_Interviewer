@@ -12,54 +12,88 @@ import uuid
 import pandas as pd
 
 # --- SECURE CONFIGURATION LOADING ---
-def load_credentials():
-    """Securely load credentials from environment or Streamlit secrets"""
-    try:
-        # Force load .env file first for local development
-        current_dir = os.getcwd()
-        env_path = os.path.join(current_dir, '.env')
+# def load_credentials():
+#     """Securely load credentials from environment or Streamlit secrets"""
+#     try:
+#         # Force load .env file first for local development
+#         current_dir = os.getcwd()
+#         env_path = os.path.join(current_dir, '.env')
         
-        # Try multiple .env locations
-        env_locations = [env_path, './.env', '../.env']
-        for location in env_locations:
-            if os.path.exists(location):
-                load_dotenv(location)
-                break
+#         # Try multiple .env locations
+#         env_locations = [env_path, './.env', '../.env']
+#         for location in env_locations:
+#             if os.path.exists(location):
+#                 load_dotenv(location)
+#                 break
         
-        # Get API key from environment first
-        api_key = os.getenv("GOOGLE_API_KEY")
+#         # Get API key from environment first
+#         api_key = os.getenv("GOOGLE_API_KEY")
         
-        # If not found in env, try Streamlit secrets
-        if not api_key:
-            try:
-                if hasattr(st, 'secrets') and len(st.secrets) > 0:
-                    api_key = st.secrets.get("GOOGLE_API_KEY")
+#         # If not found in env, try Streamlit secrets
+#         if not api_key:
+#             try:
+#                 if hasattr(st, 'secrets') and len(st.secrets) > 0:
+#                     api_key = st.secrets.get("GOOGLE_API_KEY")
                     
-                    # Handle Google Cloud credentials if available
-                    if api_key and "gcp_service_account" in st.secrets:
-                        gcp_creds = dict(st.secrets["gcp_service_account"])
-                        with open("google-credentials.json", "w") as f:
-                            json.dump(gcp_creds, f)
-                        os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "google-credentials.json"
-            except:
-                pass
+#                     # Handle Google Cloud credentials if available
+#                     if api_key and "gcp_service_account" in st.secrets:
+#                         gcp_creds = dict(st.secrets["gcp_service_account"])
+#                         with open("google-credentials.json", "w") as f:
+#                             json.dump(gcp_creds, f)
+#                         os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "google-credentials.json"
+#             except:
+#                 pass
         
-        # Set Google Cloud credentials path from .env if available
-        if api_key:
-            credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
-            if credentials_path:
-                # Handle relative path
-                if credentials_path.startswith('./'):
-                    credentials_path = os.path.join(current_dir, credentials_path[2:])
+#         # Set Google Cloud credentials path from .env if available
+#         if api_key:
+#             credentials_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
+#             if credentials_path:
+#                 # Handle relative path
+#                 if credentials_path.startswith('./'):
+#                     credentials_path = os.path.join(current_dir, credentials_path[2:])
                 
-                if os.path.exists(credentials_path):
-                    os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
+#                 if os.path.exists(credentials_path):
+#                     os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = credentials_path
         
-        return api_key
+#         return api_key
         
-    except Exception as e:
-        return None
+#     except Exception as e:
+#         return None
+# --- SECURE CONFIGURATION AND CREDENTIALS SETUP ---
+def setup_credentials():
+    """
+    Sets up credentials for both local and deployed environments.
+    - For local: Relies on a .env file.
+    - For deployment: Reads Streamlit secrets, creates a temporary credentials file,
+      and sets the necessary environment variables.
+    """
+    # First, try to load the .env file for local development
+    load_dotenv()
 
+    # Check if the app is running on Streamlit Cloud
+    if hasattr(st, 'secrets'):
+        # If on Streamlit Cloud, get secrets
+        gcp_creds_dict = st.secrets.get("gcp_service_account")
+        api_key = st.secrets.get("GOOGLE_API_KEY")
+
+        if gcp_creds_dict:
+            # Create a temporary credentials file from secrets
+            with open("google-credentials.json", "w") as f:
+                json.dump(gcp_creds_dict, f)
+            # Set the environment variable to this new file
+            os.environ['GOOGLE_APPLICATION_CREDENTIALS'] = "google-credentials.json"
+        
+        if api_key:
+            # Set the Gemini API key
+            genai.configure(api_key=api_key)
+
+# Call the setup function right at the top of your script
+setup_credentials()
+
+# --- CONFIGURATION ---
+# This section is now much simpler as setup_credentials() handles everything.
+model = genai.GenerativeModel('gemini-1.5-flash')
+ENABLE_TTS = os.getenv("ENABLE_TTS", "true").lower() == "true"
 # --- CONFIGURATION ---
 # Load credentials securely
 api_key = load_credentials()
@@ -117,6 +151,49 @@ QUESTION_BANK = [
 ]
 
 # --- ENHANCED TEXT-TO-SPEECH FUNCTIONS ---
+# @st.cache_data
+# def text_to_speech(text):
+#     """Convert text to speech using Google Cloud TTS with enhanced error handling"""
+#     if not ENABLE_TTS:
+#         return None
+        
+#     try:
+#         # Check if credentials are available
+#         credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
+#         if not credentials_path or not os.path.exists(credentials_path):
+#             return None
+            
+#         # Initialize the TTS client
+#         client = texttospeech.TextToSpeechClient()
+        
+#         # Set the text input to be synthesized
+#         synthesis_input = texttospeech.SynthesisInput(text=text)
+        
+#         # Build the voice request with professional settings
+#         voice = texttospeech.VoiceSelectionParams(
+#             language_code="en-US",
+#             name="en-US-Neural2-J",  # Professional male voice for interviews
+#             ssml_gender=texttospeech.SsmlVoiceGender.MALE
+#         )
+        
+#         # Select the type of audio file with optimized settings
+#         audio_config = texttospeech.AudioConfig(
+#             audio_encoding=texttospeech.AudioEncoding.MP3,
+#             speaking_rate=0.9,  # Slightly slower for clarity
+#             pitch=-2.0,  # Slightly deeper for professionalism
+#             volume_gain_db=1.0
+#         )
+        
+#         # Perform the text-to-speech request
+#         response = client.synthesize_speech(
+#             input=synthesis_input, voice=voice, audio_config=audio_config
+#         )
+        
+#         return response.audio_content
+#     except Exception as e:
+#         # Silently fail and disable TTS for this session
+#         return None
+# --- ENHANCED TEXT-TO-SPEECH FUNCTIONS ---
 @st.cache_data
 def text_to_speech(text):
     """Convert text to speech using Google Cloud TTS with enhanced error handling"""
@@ -124,29 +201,25 @@ def text_to_speech(text):
         return None
         
     try:
-        # Check if credentials are available
-        credentials_path = os.environ.get('GOOGLE_APPLICATION_CREDENTIALS')
-        if not credentials_path or not os.path.exists(credentials_path):
-            return None
-            
-        # Initialize the TTS client
+        # Initialize the TTS client. It will automatically find the credentials
+        # from the environment variable set by setup_credentials().
         client = texttospeech.TextToSpeechClient()
         
         # Set the text input to be synthesized
         synthesis_input = texttospeech.SynthesisInput(text=text)
         
-        # Build the voice request with professional settings
+        # Build the voice request
         voice = texttospeech.VoiceSelectionParams(
             language_code="en-US",
-            name="en-US-Neural2-J",  # Professional male voice for interviews
+            name="en-US-Neural2-J",
             ssml_gender=texttospeech.SsmlVoiceGender.MALE
         )
         
-        # Select the type of audio file with optimized settings
+        # Select the type of audio file
         audio_config = texttospeech.AudioConfig(
             audio_encoding=texttospeech.AudioEncoding.MP3,
-            speaking_rate=0.9,  # Slightly slower for clarity
-            pitch=-2.0,  # Slightly deeper for professionalism
+            speaking_rate=0.9,
+            pitch=-2.0,
             volume_gain_db=1.0
         )
         
@@ -157,7 +230,8 @@ def text_to_speech(text):
         
         return response.audio_content
     except Exception as e:
-        # Silently fail and disable TTS for this session
+        # If any error occurs, it will be caught here.
+        print(f"TTS Error: {e}")
         return None
 
 def play_question_audio(question_text):
@@ -301,7 +375,7 @@ def render_header():
     
     with col1:
         try:
-            st.image("/Users/kapilsharma/excel-interviewer/codingninja.jpeg", width=100)
+            st.image("codingninja.jpeg", width=100)
         except:
             st.markdown("🏢 **CODING NINJAS**")
     
