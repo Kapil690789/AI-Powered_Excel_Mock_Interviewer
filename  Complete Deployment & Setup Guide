@@ -1,0 +1,217 @@
+# 🚀 Complete Deployment & Setup Guide
+## AI-Powered Excel Mock Interviewer
+
+This guide provides step-by-step instructions to deploy the application and make it production-ready for the Coding Ninjas assignment submission.
+
+---
+
+## 📋 Prerequisites Checklist
+
+### Required Accounts & APIs
+- [ ] Google AI Studio account (for Gemini API)
+- [ ] Google Cloud Platform account (for Text-to-Speech)
+- [ ] Streamlit Cloud account (for deployment)
+- [ ] GitHub account (for code hosting)
+
+### Local Development Requirements
+- [ ] Python 3.8+ installed
+- [ ] Git installed
+- [ ] Text editor/IDE (VS Code recommended)
+
+---
+
+## 🛠️ Step 1: Local Development Setup
+
+### 1.1 Project Structure Setup
+```bash
+# Create project directory
+mkdir excel-interviewer
+cd excel-interviewer
+
+# Create virtual environment
+python -m venv venv
+
+# Activate virtual environment
+# On Windows:
+venv\Scripts\activate
+# On Mac/Linux:
+source venv/bin/activate
+
+# Create project structure
+mkdir scripts
+touch app.py
+touch requirements.txt
+touch .env
+touch README.md
+touch .gitignore
+```
+
+### 1.2 Install Dependencies
+Create `requirements.txt`:
+```txt
+streamlit>=1.28.0
+google-generativeai>=0.3.0
+python-dotenv>=1.0.0
+google-cloud-texttospeech>=2.16.0
+```
+
+Install packages:
+```bash
+pip install -r requirements.txt
+```
+
+### 1.3 Environment Configuration
+Create `.env` file:
+```env
+GOOGLE_API_KEY=your_gemini_api_key_here
+```
+
+Create `.gitignore`:
+```gitignore
+.env
+venv/
+__pycache__/
+*.pyc
+.DS_Store
+google-credentials.json
+*.mp3
+.streamlit/secrets.toml
+```
+
+---
+
+## 🔑 Step 2: API Keys & Credentials Setup
+
+### 2.1 Google Gemini API Key
+1. Visit [Google AI Studio](https://makersuite.google.com/app/apikey)
+2. Sign in with Google account
+3. Click "Create API Key"
+4. Copy the key and add to your `.env` file
+
+### 2.2 Google Cloud Text-to-Speech Setup (Optional but Recommended)
+
+#### Option A: Full Setup (Recommended for Production)
+1. Go to [Google Cloud Console](https://console.cloud.google.com/)
+2. Create new project or select existing one
+3. Enable the Text-to-Speech API:
+   - Navigate to APIs & Services > Library
+   - Search for "Text-to-Speech API"
+   - Click Enable
+4. Create service account:
+   - Go to IAM & Admin > Service Accounts
+   - Click "Create Service Account"
+   - Name: `excel-interviewer-tts`
+   - Role: `Text-to-Speech Client`
+   - Generate and download JSON key
+5. Rename JSON key to `google-credentials.json`
+6. Place in project root (same directory as app.py)
+
+#### Option B: Skip TTS (App will work without audio)
+- App gracefully handles missing TTS credentials
+- Audio features will be disabled but all other functionality works
+
+---
+
+## 💻 Step 3: Local Testing
+
+### 3.1 Test the Application
+```bash
+# Run the app locally
+streamlit run app.py
+```
+
+### 3.2 Verify All Features
+- [ ] Application loads without errors
+- [ ] Question progression works
+- [ ] AI evaluation functions properly
+- [ ] Audio playback works (if TTS configured)
+- [ ] Final report generation completes
+- [ ] Progress tracking displays correctly
+
+---
+
+## 🌐 Step 4: Production Deployment
+
+### 4.1 Prepare for Deployment
+
+#### Create Streamlit Secrets
+Create `.streamlit/secrets.toml`:
+```toml
+GOOGLE_API_KEY = "your_gemini_api_key_here"
+
+# Optional: If using Google Cloud TTS
+[gcp_service_account]
+type = "service_account"
+project_id = "your_project_id"
+private_key_id = "your_private_key_id"
+private_key = "your_private_key"
+client_email = "your_client_email"
+client_id = "your_client_id"
+auth_uri = "https://accounts.google.com/o/oauth2/auth"
+token_uri = "https://oauth2.googleapis.com/token"
+```
+
+#### Update app.py for Production
+Add this code at the top of app.py for Streamlit Cloud compatibility:
+```python
+import streamlit as st
+import os
+
+# Production secret handling
+if hasattr(st, 'secrets'):
+    # Running on Streamlit Cloud
+    try:
+        os.environ['GOOGLE_API_KEY'] = st.secrets["GOOGLE_API_KEY"]
+        
+        # Handle GCP credentials if available
+        if "gcp_service_account" in st.secrets:
+            import json
+            gcp_creds = dict(st.secrets["gcp_service_account"])
+            
+            # Write credentials to file for Google Cloud client
+            with open("google-credentials.json", "w") as f:
+                json.dump(gcp_creds, f)
+                
+    except Exception as e:
+        st.error(f"Configuration error: {e}")
+else:
+    # Running locally - use .env file
+    from dotenv import load_dotenv
+    load_dotenv()
+```
+
+### 4.2 GitHub Repository Setup
+```bash
+# Initialize git repository
+git init
+
+# Add all files
+git add .
+
+# Commit
+git commit -m "Initial commit: AI Excel Interviewer"
+
+# Connect to GitHub repository
+git remote add origin https://github.com/yourusername/ai-excel-interviewer.git
+
+# Push to GitHub
+git branch -M main
+git push -u origin main
+```
+
+### 4.3 Streamlit Cloud Deployment
+
+1. **Visit Streamlit Cloud**
+   - Go to [share.streamlit.io](https://share.streamlit.io)
+   - Sign in with GitHub account
+
+2. **Deploy Application**
+   - Click "New app"
+   - Select your GitHub repository
+   - Main file path: `app.py`
+   - Click "Deploy"
+
+3. **Configure Secrets**
+   - Go to App settings > Secrets
+   - Paste your `.streamlit/secrets.toml` content
+   - Save secrets
